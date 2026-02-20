@@ -1,0 +1,17 @@
+name: lfploc
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip>=22.0
+  - numpy
+  - scikit-learn
+  - umap-learn
+  - hdbscan
+  - matplotlib-base
+  - pandas
+  - h5py
+  - pip:
+    - spikeinterface
+    - brainrender
