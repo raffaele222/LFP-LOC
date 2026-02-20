@@ -1,6 +1,6 @@
 ## LFP-LOC
 
-Code associated to the method presented in the [] paper.
+Code associated to the method presented in the paper: "LFP-LOC: an LFP power–based method for the anatomical localization of high-density neural probes".
 
 Estimate a SiNAPS or Neuropixel's probe's anatomical location using the power spectral features present in canonical LFP bands.
 
