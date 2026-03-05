@@ -116,9 +116,9 @@ def initialize_recording(
     if Path(file_path).suffix == ".h5" or Path(file_path).suffix == ".bin":
         read_rec_func = si.read_sinaps_research_platform_h5 if Path(file_path).suffix == ".h5" else si.read_sinaps_research_platform
         rec = read_rec_func(file_path=file_path, stream_name="filt")
+        from spikeinterface.extractors.sinapsrecordingextractors import get_sinaps_probe_info, get_sinaps_probe
+        probe_type = get_sinaps_probe_info(rec)["name"]
         if not rec.has_probe():
-            from spikeinterface.extractors.sinapsrecordingextractors import get_sinaps_probe_info, get_sinaps_probe
-            probe_type = get_sinaps_probe_info(rec)["name"]
             if probe_type == "M0004-1024p-8s_R01" or probe_type == "M0004":
                 probe_type = "p1024s8"
                 probe = get_sinaps_probe(probe_type)

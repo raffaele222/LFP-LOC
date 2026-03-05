@@ -31,6 +31,9 @@ def place_probe_on_atlas(df, probe_params, save_folder, norm, full_labels, AP, M
     cluster_labels = False
     sorted_labels = False
 
+    if len(df.index) == 384:
+        np_probe = True
+
     for x in range(probe_num):
 
         if split_probes:
@@ -96,7 +99,6 @@ def place_probe_on_atlas(df, probe_params, save_folder, norm, full_labels, AP, M
         hemispheres_image = atlas.hemispheres
 
         # get offset if using non-sinaps probes
-        np_probe = True
         if np_probe:
             offset = probe_params["y_bottom (um)"] - 500
         else:
@@ -132,7 +134,6 @@ def place_probe_on_atlas(df, probe_params, save_folder, norm, full_labels, AP, M
         for region_id, rgb in selected_rgb_map.items():
             mask = selected_annotated_image == region_id
             rgb_image[mask] = rgb
-
 
         # Load the CSV file with probe cluster information
         #rel_path = os.path.relpath(os.path.dirname(probe_csv_file), results_folder_name)
