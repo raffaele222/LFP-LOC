@@ -1,5 +1,6 @@
 # Custom
 src/lfploc/__pycache__
+lfploc_report/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

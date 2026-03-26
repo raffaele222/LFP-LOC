@@ -18,7 +18,7 @@ from sklearn.preprocessing import StandardScaler
 from spikeinterface.core import BaseRecording
 
 from .plotting import plot_cluster_labels, plot_clusters_on_probe, plot_coordinates_on_atlas, plot_dbscan, plot_dendogram, plot_evaluation_matrix, plot_feature_grid_maps, plot_pca, plot_probe_on_atlas, plot_selected_features
-from .utils import bandpass_filter, build_border_image, cluster_color_map_for_labels, compute_psd, get_probe_properties, remap_labels
+from .utils import bandpass_filter, build_border_image, cluster_color_map_for_labels, compute_psd, get_probe_properties, get_relabeled_atlas, remap_labels
 
 
 try:
@@ -564,7 +564,17 @@ class Lfploc:
         plot_coordinates_on_atlas(ap, ml, dv, rgb_image, x_plot, y_plot, text_pos, resolution_um, borders, save_report_dir, save_report_format)
     
 
-    def place_probe_on_atlas(self, ap : float, ml : float, dv : float,  save_report_dir : str | Path, atlas_id : str = "kim_mouse_isotropic_20um", save_report_format : str = "png", norm = None):
+    def place_probe_on_atlas(
+            self,
+            ap : float,
+            ml : float,
+            dv : float,
+            save_report_dir : str | Path,
+            atlas_id : str = "kim_mouse_isotropic_20um",
+            save_report_format : str = "png",
+            use_relabeled_if_available : bool = True,
+            norm = None
+        ):
 
         if not isinstance(self.df, pd.DataFrame):
             print("Labelling algorithm not run. Find labels with run()")
@@ -577,8 +587,10 @@ class Lfploc:
         atlas = BrainGlobeAtlas(atlas_id)
 
         # Load relabelled atlas where similar regions are plotted with the same color
-        relabeled_atlas = np.load("./lib/relabeled_atlas.npy")
-        rgb_map_relabelled = np.load("./lib/rgb_map.npy", allow_pickle=True).item()
+        if use_relabeled_if_available:
+            relabeled_atlas, rgb_map_relabelled = get_relabeled_atlas(atlas_id)
+        else:
+            relabeled_atlas = rgb_map_relabelled = None
 
         # get resolution from atlas_id
         match = re.search(r'(\d+)\s*um', atlas_id)
@@ -623,13 +635,12 @@ class Lfploc:
         slice_y = int((bregma_pos[1] + DV_um) / resolution_um)
         slice_x = int((bregma_pos[2] - ML_um) / resolution_um)
 
-        if not atlas_id == "kim_mouse_isotropic_20um" or self.probe_specs["n_shanks"] == 1: 
-            selected_atlas = atlas.annotation
-            selected_rgb_map = id_to_rgb
-        else:
+        if relabeled_atlas and rgb_map_relabelled and self.probe_specs["n_shanks"] > 1:
             selected_atlas = relabeled_atlas
             selected_rgb_map = rgb_map_relabelled
-
+        else: 
+            selected_atlas = atlas.annotation
+            selected_rgb_map = id_to_rgb
 
         # Prepare the annotation slice
         selected_annotated_image = selected_atlas[slice_z, :, :]

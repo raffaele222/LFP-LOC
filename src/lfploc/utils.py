@@ -1,7 +1,9 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import os
 
+from pathlib import Path
 from scipy.interpolate import griddata
 from scipy.signal import butter, filtfilt, welch
 
@@ -130,6 +132,28 @@ def get_probe_properties(
         shank_spacing = 0
 
     return n_cols, shank_spacing
+
+
+def get_relabeled_atlas(atlas_id : str, download_if_not_available : bool = False):
+
+    config_folder = Path.home() / ".config" / "lfploc"
+
+    if not os.path.isdir(config_folder):
+        if not download_if_not_available:
+            return None, None
+        
+        os.makedirs(config_folder.parent, exist_ok=True)
+        os.makedirs(config_folder, exist_ok=True)
+
+    if os.path.exists(config_folder / atlas_id / "relabeled_atlas.npy") and os.path.exists(config_folder / atlas_id / "rgb_map.npy"):
+        relabeled_atlas = np.load(config_folder / atlas_id / "relabeled_atlas.npy")
+        rgb_map = np.load(config_folder / atlas_id / "rgb_map.npy", allow_pickle=True).item()
+        return relabeled_atlas, rgb_map
+    
+    print("Downloading of relabeled atlases not available yet. As of currently, a relabeled version of the 'kim_mouse_isotropic_20um' can be found in the GitHub repository under the 'lib' directory")
+    print("To enable, download the two 'relabaled_atlas.npy' and 'rgb_map.npy' files and copy them to the following directory:")
+    print(config_folder / "kim_mouse_isotropic_20um")
+    raise NotImplementedError
 
 
 def interpolate_features_to_grid(selected_features, electrode_positions, grid_step_um=15, method='linear'):
