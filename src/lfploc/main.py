@@ -36,7 +36,7 @@ except:
 
 class Lfploc:
 
-    def __init__(self, rec : BaseRecording):
+    def __init__(self, rec : BaseRecording, order_traces_by_shank : bool = False, custom_n_cols : int = None):
         """
         Initialiaze an instance of the main Lfploc class.
 
@@ -44,6 +44,10 @@ class Lfploc:
         ----------
         rec : BaseRecording
             Recording initialized with SpikeInterface with probe pre-configured
+        order_traces_by_shank : bool
+            Orders channels in recording array by shank ID. Required by some Neuropixels datasets where traces are not ordered by shank, as required by LFP-LOC.
+        custom_n_cols : int = None
+            Specify number of columns per shank. Required by some Neuropixels datasets where pitch between shanks is not the same (like when selecting alternating columns).
         """
 
         self.rec = rec
@@ -52,6 +56,7 @@ class Lfploc:
         self.clustering_method = ""
         self.dimensionality_reduction_method = ""
         self.n_ch = 0
+        self.new_order = None
 
         assert self.rec.has_probe(), "Recording does not have probe attached. Exiting."
 
@@ -61,6 +66,9 @@ class Lfploc:
         n_shanks = probe.get_shank_count()
         n_ch = probe.get_contact_count()
         n_cols, shank_spacing = get_probe_properties(self.electrode_positions, n_shanks)
+
+        if custom_n_cols:
+            n_cols = custom_n_cols
 
         self.probe_specs = {
             "x_left": 8,
@@ -74,6 +82,22 @@ class Lfploc:
             "n_ch_per_shank": n_ch // n_shanks
         }
 
+        if order_traces_by_shank and n_shanks > 1:
+            self.rec.set_property("group", probe.shank_ids)
+
+            split_recording = self.rec.split_by("group")
+
+            temp_ep = np.concatenate(
+                [split_recording[str(x)].get_channel_locations().T for x in range(n_shanks)],
+                axis=1
+            )
+            self.new_order = np.lexsort((temp_ep[1, :], temp_ep[0, :]))
+            self.electrode_positions = temp_ep.T[self.new_order].T
+        else:
+            order_traces_by_shank = False
+
+        self.custom_device_indexing = order_traces_by_shank
+
         self.n_ch = n_ch
         self.cluster_labels = None
 
@@ -85,6 +109,9 @@ class Lfploc:
             start_time : float = 0.0,
             end_time : float = 30.0,
             save_report_dir : Path | str = None,
+            z_score_threshold : float = 2.5,
+            window_size_outlier_removal : int = 20,
+            window_size_smoothening : int = 8,
             save_report_format : str = "png",
             atlas_id : str = "kim_mouse_isotropic_20um",
             ap : float = None,
@@ -109,6 +136,12 @@ class Lfploc:
             automatically defaults to end of recording
         save_report_dir : Path | str = None
             Path to directory where to save plots generated during analysis
+        z_score_threshold : float = 2.5
+            Channels with normalized psd features above this z-score-threshold get labeled as noise and discarded.
+        window_size_outlier_removal : int = 20
+            Number of electrodes to consider in window when computing z-score for identifying channels to discard
+        window_size_smoothening : int = 8
+            Number of electrodes to consider in window when smoothening
         save_report_format : str = 'png'
             Format in which to save each plot generated. All methods supported by matplotlib accepted
         atlas_id : str = 'kim_mouse_isotropic_20um'
@@ -132,7 +165,16 @@ class Lfploc:
         fs = self.rec.sampling_frequency
         if end_time > self.rec.get_total_duration():
             end_time = self.rec.get_total_duration()
-        traces = self.rec.get_traces(start_frame=start_time*fs, end_frame=end_time*fs, return_in_uV=True).T
+
+        if self.custom_device_indexing:
+            split_recording = self.rec.split_by("group")
+            traces = np.concatenate(
+                [split_recording[str(x)].get_traces(start_frame=start_time*fs, end_frame=end_time*fs).T for x in range(self.probe_specs["n_shanks"])],
+                axis=0
+            )
+            traces = traces[self.new_order]
+        else:
+            traces = self.rec.get_traces(start_frame=start_time*fs, end_frame=end_time*fs, return_in_uV=True).T
 
         psd_features = self.get_psd_features(traces)
 
@@ -144,20 +186,20 @@ class Lfploc:
         for key in psd_features.keys():
             feature = psd_features[key]
             feature = feature.copy()
-            window_size = 20
+            window_size = window_size_outlier_removal
             for shank in range(n_shanks):
                 shank_feature = feature[shank*n_ch_per_shank:(shank+1)*n_ch_per_shank]
                 for start in range(0, len(shank_feature), window_size):
                     end = min(start + window_size, len(feature))
                     window = shank_feature[start:end]
                     z_scores = zscore(window, nan_policy='omit')
-                    outlier_mask = np.abs(z_scores) > 2.5
+                    outlier_mask = np.abs(z_scores) > z_score_threshold
                     window[outlier_mask] = np.nan
                     shank_feature[start:end] = window
                 feature[shank*n_ch_per_shank:(shank+1)*n_ch_per_shank] = shank_feature
             psd_features[key] = feature
 
-        moving_avg_window = 8
+        moving_avg_window = window_size_smoothening
         # split into shanks before smoothing and recombine after smoothing
         psd_features_smoothed = psd_features.copy()
         for key in psd_features.keys():
@@ -238,6 +280,9 @@ class Lfploc:
         'start_time': Start time of segment to calculate power spectral features on. Default 0.
         'end_time': End time of segment to calculate power spectral features on. Default 30.
         'save_report_dir': Directory to save a report containg every plots generated during each step. Default None (disabled).
+        'z_score_threshold': Channels with normalized psd features above this z-score-threshold get labeled as noise and discarded.
+        'window_size_outlier_removal': Number of electrodes to consider in window when computing z-score for identifying channels to discard. Recommended to keep default, but can be useful to change if working with unique probe geometries.
+        'window_size_smoothening': Number of electrodes to consider in window when smoothening. Recommended to keep default, but can be useful to change if working with unique probe geometries.
         'save_report_format': Image format to save all plots generated into. Default 'png'.
         'atlas_id': ID of Atlas to use supported by brainglobe-atlasapi. Accepted: any atlas provided by the brainglobe-atlasapi library. Default 'kim_mouse_isotropic_20um'.
         'ap': Insertion AP coordinates in millimeters. If not defined placement of probe on atlas is skipped.
@@ -475,7 +520,16 @@ class Lfploc:
         return features_reduced
     
 
-    def place_coordinates_on_atlas(self, ap : float, ml : float, dv : float, save_report_dir : str | Path, atlas_id : str = "kim_mouse_isotropic_20um", save_report_format : str = "png", borders : bool = False):
+    def place_coordinates_on_atlas(
+            self,
+            ap : float,
+            ml : float,
+            dv : float,
+            save_report_dir : str | Path,
+            atlas_id : str = "kim_mouse_isotropic_20um",
+            save_report_format : str = "png",
+            borders : bool = False
+        ):
 
         os.makedirs(save_report_dir, exist_ok=True)
 
