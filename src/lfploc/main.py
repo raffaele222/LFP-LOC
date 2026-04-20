@@ -109,6 +109,7 @@ class Lfploc:
             start_time : float = 0.0,
             end_time : float = 30.0,
             save_report_dir : Path | str = None,
+            do_car : bool = False,
             z_score_threshold : float = 2.5,
             window_size_outlier_removal : int = 20,
             window_size_smoothening : int = 8,
@@ -136,6 +137,8 @@ class Lfploc:
             automatically defaults to end of recording
         save_report_dir : Path | str = None
             Path to directory where to save plots generated during analysis
+        do_car : bool = False
+            Apply Common Reference Average
         z_score_threshold : float = 2.5
             Channels with normalized psd features above this z-score-threshold get labeled as noise and discarded.
         window_size_outlier_removal : int = 20
@@ -166,6 +169,10 @@ class Lfploc:
         if end_time > self.rec.get_total_duration():
             end_time = self.rec.get_total_duration()
 
+        if do_car:
+            from spikeinterface.preprocessing import common_reference
+            self.rec = common_reference(self.rec, operator="average")
+            
         if self.custom_device_indexing:
             split_recording = self.rec.split_by("group")
             traces = np.concatenate(
@@ -280,6 +287,7 @@ class Lfploc:
         'start_time': Start time of segment to calculate power spectral features on. Default 0.
         'end_time': End time of segment to calculate power spectral features on. Default 30.
         'save_report_dir': Directory to save a report containg every plots generated during each step. Default None (disabled).
+        'do_car': Apply Common Average Reference.
         'z_score_threshold': Channels with normalized psd features above this z-score-threshold get labeled as noise and discarded.
         'window_size_outlier_removal': Number of electrodes to consider in window when computing z-score for identifying channels to discard. Recommended to keep default, but can be useful to change if working with unique probe geometries.
         'window_size_smoothening': Number of electrodes to consider in window when smoothening. Recommended to keep default, but can be useful to change if working with unique probe geometries.
