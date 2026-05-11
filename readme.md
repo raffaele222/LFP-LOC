@@ -1,6 +1,6 @@
 ## LFP-LOC
 
-Code associated to the method presented in the paper: "LFP-LOC: an LFP power–based method for the anatomical localization of high-density neural probes" (in-review).
+Code associated to the method presented in the paper: "LFP-LOC: an LFP power–based method for the anatomical localization of high-density neural probes" ([link](https://doi.org/10.3389/fnins.2026.1816533)).
 
 Estimate a probe's anatomical location using the power spectral features present in canonical LFP bands. Recording and probe parsing directly handled through SpikeInterface.
 
@@ -67,8 +67,3 @@ Any atlas included with brainglobe-atlasapi should work by default. The atlas us
 DV is always adjusted to include the offset between the top margin of the image (bregma coordinate) and the start of the cortex on the same coronal plane. This was done since DV coordinates are generally calculated from the surface of the brain rather than from the bregma.
 
 Just the stereotactic coordinates can be plotted on the atlas by running the `loc.place_coordinates_on_atlas(ap, ml, dv, save_report_dir)` method and passing the coordinates and path to where to save the plot generated.
-
-
-### How to cite
-
-Paper in-review

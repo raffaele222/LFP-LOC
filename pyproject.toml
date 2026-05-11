@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lfploc"
-version = "0.0.3"
+version = "0.0.4"
 authors = [
   { name="Alberto Perna", email="alberto.perna@iit.it" },
   { name="Raffaele Adamo", email="raffaele.adamo@iit.it" },
